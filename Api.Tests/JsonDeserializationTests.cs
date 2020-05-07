@@ -1,4 +1,4 @@
-using Api.Library.Models;
+using Api.Hosting.Dto;
 using NUnit.Framework;
 using System;
 using System.Text.Json;
@@ -11,7 +11,7 @@ namespace Api.Tests
         public void UserInfo_should_deserialize_DateTime_correctly()
         {
             var json = @"{ ""updated_at"":""2020-04-05T20:20:20.000Z"" }";
-            var obj = JsonSerializer.Deserialize<UserInfo>(json);
+            var obj = JsonSerializer.Deserialize<UserDto>(json);
             var expected = new DateTime(2020, 04, 05, 20, 20, 20);
 
             Assert.That(obj, Is.Not.Null);
@@ -29,7 +29,7 @@ namespace Api.Tests
 ""updated_at"":""2020-05-01T23:54:29.000Z"",
 ""email"":""gjdass@yopmail.fr"",
 ""email_verified"":true}";
-            var obj = JsonSerializer.Deserialize<UserInfo>(json);
+            var obj = JsonSerializer.Deserialize<UserDto>(json);
 
             Assert.That(obj, Is.Not.Null);
             Assert.That(obj.Nickname, Is.EqualTo("gjdass"));

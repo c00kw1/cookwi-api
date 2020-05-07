@@ -1,19 +1,23 @@
-﻿using Api.Hosting.Helpers;
+﻿using Api.Hosting.Dto;
+using Api.Hosting.Helpers;
 using Api.Hosting.Settings;
-using Api.Library.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using RestSharp;
+using Swashbuckle.AspNetCore.Annotations;
 using System;
+using System.Linq;
+using System.Security.Claims;
 using System.Text.Json;
 
 namespace Api.Hosting.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("api/[controller]")]
+    [Produces("application/json")]
     [Authorize]
     public class UsersController : Controller
     {
@@ -29,9 +33,13 @@ namespace Api.Hosting.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpGet("me")]
-        public ActionResult<UserInfo> GetMyUserInfo()
+        [SwaggerOperation(Summary = "Retrieve current user informations from sso")]
+        [SwaggerResponse(200, "User informations", typeof(UserDto))]
+        [SwaggerResponse(400, "Cannot retrieve user informations")]
+        public ActionResult<UserDto> GetMyUserInfo()
         {
             // to do that we need the user current Bearer token
+            var userId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier).Value;
             var token = HttpContext.GetTokenAsync("access_token").Result;
             var client = new RestClient(_authSettings.Domain);
             var req = new RestRequest(_authSettings.Routes["UserInfo"], Method.GET);
@@ -46,7 +54,7 @@ namespace Api.Hosting.Controllers
             try
             {
                 // we check we can deserialize it, meaning the response format and content are pretty OK
-                var infos = JsonSerializer.Deserialize<UserInfo>(res.Content);
+                var infos = JsonSerializer.Deserialize<UserDto>(res.Content);
                 return Ok(infos);
             }
             catch

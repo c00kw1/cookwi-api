@@ -1,9 +1,12 @@
 using Api.Hosting.Authorization;
 using Api.Hosting.Settings;
+using Api.Service;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -31,7 +34,9 @@ namespace Api.Hosting
             var authSettings = section.Get<AuthenticationSettings>();
             services.Configure<AuthenticationSettings>(section);
 
-            services.AddControllers();
+            services.AddControllers().AddNewtonsoftJson(options => options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
+            services.AddCors();
+            services.AddRouting(options => options.LowercaseUrls = true); // lower every controller route by default
 
             #region Security
 
@@ -100,9 +105,25 @@ namespace Api.Hosting
                         configScopes.Select(s => s.Name).ToArray() // all the scopes of the api (not the profile/openid/email)
                     }
                 });
+
+                options.EnableAnnotations();
             });
 
+            services.AddSwaggerGenNewtonsoftSupport();
+
             #endregion
+
+            #region DBContext
+
+            var dbSettings = DatabaseSettings.Get(Configuration["DatabaseSettingsPath"]);
+            services.AddDbContext<CookwiDbContext>(options => options.UseNpgsql(dbSettings.ConnectionString));
+
+            #endregion
+        }
+
+        private string CraftConnectionString(string v)
+        {
+            throw new NotImplementedException();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -111,6 +132,8 @@ namespace Api.Hosting
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
+                // allow angular front to call this API in dev
+                app.UseCors(options => options.WithOrigins("http://localhost:4200").AllowAnyMethod().AllowAnyHeader());
             }
 
             app.UseHttpsRedirection();
