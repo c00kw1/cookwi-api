@@ -1,3 +1,5 @@
+![Build](https://github.com/gjdass/cookwi-api/workflows/Build/badge.svg)
+
 # Cookwi .net core Api
 
 Written in C#, using dotnet core framework so it is fully x-platform.
