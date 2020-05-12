@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Api.Service.Models
 {
     [Table("rcptag")]
+    [Serializable]
     public class RecipeTag
     {
         [Column("rcpid")]

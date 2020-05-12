@@ -1,22 +1,27 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Api.Service.Models
 {
-    [Table("tag")]
+    [Table("rcpstp")]
     [Serializable]
-    public class Tag
+    public class RecipeStep
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         [Column("id")]
         public Guid Id { get; set; }
 
-        [Column("tagnam")]
-        public string Name { get; set; }
+        [Column("rcpid")]
+        public Guid RecipeId { get; set; }
 
-        public ICollection<RecipeTag> RecipesLink { get; set; }
+        [Column("stpnum")]
+        public int StepNumber { get; set; }
+
+        [Column("stptxt")]
+        public string Content { get; set; }
+
+        public Recipe Recipe { get; set; }
     }
 }

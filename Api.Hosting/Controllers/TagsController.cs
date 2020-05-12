@@ -2,8 +2,10 @@
 using Api.Service;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.Annotations;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Api.Hosting.Controllers
 {
@@ -27,16 +29,16 @@ namespace Api.Hosting.Controllers
         [HttpGet]
         [SwaggerOperation(Summary = "Get all available tags globally")]
         [SwaggerResponse(200, "All available tags", typeof(TagDto[]))]
-        [SwaggerResponse(400, "Cannot retrieve tags")]
-        public ActionResult<TagDto[]> GetAllTags()
+        [SwaggerResponse(500, "Cannot retrieve tags, there was an error")]
+        public async Task<IActionResult> GetAllTags()
         {
             try
             {
-                return _context.Tags.Select(t => t.Dto()).ToArray();
+                return Ok(await _context.Tags.Select(t => t.Dto()).ToArrayAsync());
             }
             catch
             {
-                return BadRequest("Cannot retrieve the list of tags");
+                return StatusCode(500, "Cannot retrieve the list of tags, an error occured");
             }
         }
 
@@ -48,8 +50,8 @@ namespace Api.Hosting.Controllers
         [Route("my")]
         [SwaggerOperation(Summary = "Get all current user's tags based on his recipes")]
         [SwaggerResponse(200, "Current user all exsting tags", typeof(TagDto[]))]
-        [SwaggerResponse(400, "Cannot retrieve tags")]
-        public ActionResult<TagDto[]> GetMyTags()
+        [SwaggerResponse(500, "Cannot retrieve tags")]
+        public async Task<IActionResult> GetMyTags()
         {
             try
             {
@@ -57,7 +59,7 @@ namespace Api.Hosting.Controllers
             }
             catch
             {
-                return BadRequest("Cannot retrieve the list of tags");
+                return StatusCode(500, "Cannot retrieve the list of tags");
             }
         }
 
@@ -69,18 +71,18 @@ namespace Api.Hosting.Controllers
         [HttpPost]
         [SwaggerOperation(Summary = "Add a recipe tag if not already present")]
         [SwaggerResponse(201, "Recipe object created and inserted in db", typeof(TagDto))]
-        [SwaggerResponse(400, "Cannot add the new tag, it may already exist")]
-        public ActionResult<TagDto> PostTag([FromBody] TagDto tag)
+        [SwaggerResponse(500, "Cannot add the new tag, it may already exist")]
+        public async Task<IActionResult> PostTag([FromBody] TagDto tag)
         {
             try
             {
-                var added = _context.Tags.Add(tag.Model());
-                _context.SaveChanges();
+                var added = await _context.Tags.AddAsync(tag.Model());
+                await _context.SaveChangesAsync();
                 return Created(HttpContext.Request.Path, added.Entity.Dto());
             }
             catch
             {
-                return BadRequest("The tag cannot be added, it may already exist");
+                return StatusCode(500, "The tag cannot be added, it may already exist");
             }
         }
     }

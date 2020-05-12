@@ -1,9 +1,8 @@
-﻿using Api.Service;
+﻿using Api.Hosting.Helpers;
 using Api.Service.Models;
 using Newtonsoft.Json;
 using Swashbuckle.AspNetCore.Annotations;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace Api.Hosting.Dto
@@ -12,12 +11,13 @@ namespace Api.Hosting.Dto
     public class RecipeDto
     {
         [JsonProperty("id")]
+        [JsonConverter(typeof(GuidConverter))]
         [SwaggerSchema("Unique identifier", ReadOnly = true)]
         public Guid Id { get; set; }
 
         [JsonProperty("ownerId")]
         [SwaggerSchema("Owner identifier", ReadOnly = true)]
-        public string OwnerUid { get; set; }
+        public Guid OwnerId { get; set; }
 
         [JsonProperty("dateCreation")]
         [SwaggerSchema("Date of creation of the recipe", Format = "date", ReadOnly = true)]
@@ -38,41 +38,56 @@ namespace Api.Hosting.Dto
         [JsonProperty("tags")]
         [SwaggerSchema("Tags of the recipe")]
         public TagDto[] Tags { get; set; }
+
+        [JsonProperty("steps")]
+        [SwaggerSchema("Steps of the recipe")]
+        public RecipeStepDto[] Steps { get; set; }
+
+        [JsonProperty("ingredients")]
+        [SwaggerSchema("Ingredients of the recipe")]
+        public RecipeIngredientDto[] Ingredients { get; set; }
     }
 
     public static class RecipeDtoExtensions
     {
-        public static Recipe Model(this RecipeDto recipe, List<Tag> existingTags)
-        {
-            var coucou = new Recipe
-            {
-                Id = recipe.Id,
-                OwnerUid = recipe.OwnerUid,
-                DateCreation = recipe.DateCreation,
-                Title = recipe.Title,
-                Description = recipe.Description,
-                ImagePath = recipe.ImagePath,
-                // we transform the Dto tags in Model tags (and if we find it in existing tags, we put that one to avoid duplicate keys)
-                RecipeTags = recipe.Tags.Select(t => new RecipeTag
-                {
-                    Tag = existingTags.FirstOrDefault(e => e.Name == t.Name) ?? t.Model()
-                }).ToList()
-            };
-            return coucou;
-        }
-
         public static RecipeDto Dto(this Recipe entity)
         {
             return new RecipeDto
             {
                 Id = entity.Id,
-                OwnerUid = entity.OwnerUid,
+                OwnerId = entity.OwnerId,
                 DateCreation = entity.DateCreation,
                 Title = entity.Title,
                 Description = entity.Description,
                 ImagePath = entity.ImagePath,
-                Tags = entity.RecipeTags.Select(rt => rt.Tag.Dto()).ToArray()
+                Tags = entity.TagsLink.Select(rt => rt.Tag.Dto()).ToArray(),
+                Steps = entity.Steps.Select(s => s.Dto()).ToArray(),
+                Ingredients = entity.Ingredients.Select(s => s.Dto()).ToArray()
             };
+        }
+
+        public static Recipe Model(this RecipeDto recipe)
+        {
+            var newRecipe = new Recipe
+            {
+                Title = recipe.Title,
+                Description = recipe.Description,
+                ImagePath = recipe.ImagePath
+            };
+            // we set the tags
+            newRecipe.TagsLink = recipe.Tags.Select(newTag =>
+            {
+                return new RecipeTag
+                {
+                    Recipe = newRecipe,
+                    Tag = newTag.Model()
+                };
+            }).ToList();
+            // we set the steps and the ingredients
+            newRecipe.Steps = recipe.Steps.Select(step => step.Model()).ToList();
+            newRecipe.Ingredients = recipe.Ingredients.Select(ingredient => ingredient.Model()).ToList();
+
+            return newRecipe;
         }
     }
 }

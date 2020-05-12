@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -19,12 +18,14 @@ namespace Api.Hosting
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        public Startup(IConfiguration configuration, IWebHostEnvironment env)
         {
             Configuration = configuration;
+            Environement = env;
         }
 
         public IConfiguration Configuration { get; }
+        public IWebHostEnvironment Environement { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
@@ -48,6 +49,7 @@ namespace Api.Hosting
             {
                 options.Authority = authSettings.Domain;
                 options.Audience = authSettings.Audience;
+                options.RequireHttpsMetadata = !Environement.IsDevelopment(); // disable https for OAuth2 provider
             });
 
             services.AddAuthorization(options =>
@@ -56,7 +58,7 @@ namespace Api.Hosting
                 {
                     options.AddPolicy(policy.Name, builder =>
                     {
-                        policy.Scopes.ForEach(scope => builder.Requirements.Add(new HasScopeRequirement(scope.Name, authSettings.Domain + "/")));
+                        policy.Scopes.ForEach(scope => builder.Requirements.Add(new HasScopeRequirement(scope.Name, authSettings.Issuer)));
                     });
                 });
                 options.DefaultPolicy = options.GetPolicy("default"); // this is required, so check in appsettings.json you have at least a default policy
@@ -69,13 +71,13 @@ namespace Api.Hosting
             #region Swagger
 
             // preparing URL for authentication
-            var authUrl = authSettings.Domain + authSettings.Routes["Authorize"] + $"?audience={authSettings.Audience}";
+            var authUrl = authSettings.Domain + authSettings.Routes["Authorize"] + "?tenantId=" + authSettings.Tenant;
+            var tokenUrl = authSettings.Domain + authSettings.Routes["Token"];
+            var refreshUrl = authSettings.Domain + authSettings.Routes["Refresh"];
             // preparing the list of scopes for swagger
             var configScopes = authSettings.Policies.SelectMany(p => p.Scopes);
             var scopes = new Dictionary<string, string>(configScopes.Select(e => new KeyValuePair<string, string>(e.Name, e.Description)));
-            scopes.Add("openid", "OAuth2 basic scope"); // we add the classic scopes
-            scopes.Add("profile", "OAuth2 basic scope");
-            scopes.Add("email", "OAuth2 basic scope");
+            scopes.Add("openid", "OAuth2 basic scope"); // we add the classic scope
 
             services.AddSwaggerGen(options =>
             {
@@ -86,12 +88,13 @@ namespace Api.Hosting
                     Type = SecuritySchemeType.OAuth2,
                     Flows = new OpenApiOAuthFlows
                     {
-                        Implicit = new OpenApiOAuthFlow
+                        AuthorizationCode = new OpenApiOAuthFlow
                         {
                             AuthorizationUrl = new Uri(authUrl, UriKind.Absolute),
+                            TokenUrl = new Uri(tokenUrl, UriKind.Absolute),
+                            RefreshUrl = new Uri(refreshUrl, UriKind.Absolute),
                             Scopes = scopes
-                        },
-                        
+                        }
                     }
                 });
 
@@ -121,11 +124,6 @@ namespace Api.Hosting
             #endregion
         }
 
-        private string CraftConnectionString(string v)
-        {
-            throw new NotImplementedException();
-        }
-
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
@@ -133,7 +131,7 @@ namespace Api.Hosting
             {
                 app.UseDeveloperExceptionPage();
                 // allow angular front to call this API in dev
-                app.UseCors(options => options.WithOrigins("http://localhost:4200").AllowAnyMethod().AllowAnyHeader());
+                app.UseCors(options => options.WithOrigins("http://localhost:4200", "http://localhost:9011").AllowAnyMethod().AllowAnyHeader());
             }
 
             app.UseHttpsRedirection();
@@ -156,6 +154,7 @@ namespace Api.Hosting
                 options.SwaggerEndpoint("/swagger/v1/swagger.json", $"{Configuration.GetValue<string>("Title")} V1");
                 options.OAuthClientId(Configuration["Authentication:SwaggerClientId"]);
                 options.OAuthScopeSeparator(" ");
+                options.OAuthUsePkce();
             });
 
             #endregion

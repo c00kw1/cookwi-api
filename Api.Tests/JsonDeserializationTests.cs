@@ -20,7 +20,7 @@ namespace Api.Tests
         }
 
         [Test]
-        public void UserInfo_shoulddeserialize_correctly()
+        public void UserInfo_should_deserialize_correctly()
         {
             var json = @"{""sub"":""auth0 | 5e89f436447efd0be07453f9"",
 ""nickname"":""gjdass"",
