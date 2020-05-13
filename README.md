@@ -22,4 +22,8 @@ You will have to install a minimal dotnet core environment - [Full documentation
 
 ## Security
 
-Authentication (and scope Authorization) are managed by OAuth2 protocol via [Auth0](https://auth0.com) thirdparty. It's very handy and quite effortless when you don't want to code the SSO part.
+[FusionAuth](https://fusionauth.io/docs/v1/tech/) is used as our own SSO.
+
+## Useful links
+
+* [here](https://medium.com/@JohGeoCoder/deploying-a-net-core-2-0-web-application-to-a-production-environment-on-ubuntu-16-04-using-nginx-683b7e831e6) - how to deploy a production / homologation netcore api
