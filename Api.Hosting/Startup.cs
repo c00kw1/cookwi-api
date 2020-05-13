@@ -130,13 +130,12 @@ namespace Api.Hosting
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
-                // allow angular front to call this API in dev
-                app.UseCors(options => options.WithOrigins("http://localhost:4200", "http://localhost:9011").AllowAnyMethod().AllowAnyHeader());
             }
 
             // in PROD or homolo, we actually are behind a nginx proxy which handles SSL for us
             //app.UseHttpsRedirection();
 
+            app.UseCors(options => options.WithOrigins(Configuration["Cors"].Split('|')).AllowAnyMethod().AllowAnyHeader());
             app.UseRouting();
 
             #region Security
