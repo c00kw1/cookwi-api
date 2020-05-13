@@ -134,7 +134,8 @@ namespace Api.Hosting
                 app.UseCors(options => options.WithOrigins("http://localhost:4200", "http://localhost:9011").AllowAnyMethod().AllowAnyHeader());
             }
 
-            app.UseHttpsRedirection();
+            // in PROD or homolo, we actually are behind a nginx proxy which handles SSL for us
+            //app.UseHttpsRedirection();
 
             app.UseRouting();
 
