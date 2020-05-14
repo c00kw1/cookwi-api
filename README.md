@@ -2,7 +2,7 @@
 
 ![Build](https://github.com/gjdass/cookwi-api/workflows/Build/badge.svg)
 
-Written in C#, using dotnet core framework so it is fully x-platform.
+Written in C#, using dotnet core framework.
 
 ## First steps
 
