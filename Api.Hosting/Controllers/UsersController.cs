@@ -33,7 +33,7 @@ namespace Api.Hosting.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpGet("me")]
-        [SwaggerOperation(Summary = "Retrieve current user informations from sso [not working]")]
+        [SwaggerOperation(Summary = "[NOT WORKING] Retrieve current user informations from sso")]
         [SwaggerResponse(200, "User informations", typeof(UserDto))]
         [SwaggerResponse(400, "Cannot retrieve user informations")]
         public ActionResult<UserDto> GetMyUserInfo()
