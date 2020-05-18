@@ -1,5 +1,8 @@
 pipeline {
     agent { docker { image 'mcr.microsoft.com/dotnet/core/sdk:latest' } }
+    environment {
+        HOME = '/tmp'
+    } 
     stages {
         stage ('Install dependencies')
         {
