@@ -15,15 +15,16 @@ pipeline {
         {
             steps
             {
-                sh 'dotnet build'
+                sh 'dotnet publish ./Api.Hosting/Api.Hosting.csproj -c Release -o ${OUTPUT_PATH}'
             }
         }
-        // stage ('Test')
-        // {
-        //     steps
-        //     {
-        //         sh 'dotnet test Api.Tests/Api.Tests.csproj'
-        //     }
-        // }
+    }
+    post
+    {
+        success
+        {
+            zip zipFile: 'api-package.zip', archive: true, dir: OUTPUT_PATH
+            sh 'rm -rf api-package.zip'
+        }
     }
 }
