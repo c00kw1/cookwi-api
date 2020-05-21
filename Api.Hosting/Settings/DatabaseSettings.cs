@@ -16,6 +16,11 @@ namespace Api.Hosting.Settings
 
         public static DatabaseSettings Get(string path)
         {
+            if (path == null || path == "")
+            {
+                var status = path == null ? "null" : "empty";
+                throw new NullReferenceException($"DB settings path is {status}");
+            }
             var file = new FileInfo(path);
             if (!file.Exists)
             {
