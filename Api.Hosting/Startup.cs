@@ -47,8 +47,9 @@ namespace Api.Hosting
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
             }).AddJwtBearer(options =>
             {
-                options.Authority = authSettings.Domain;
+                options.Authority = authSettings.Authority;
                 options.Audience = authSettings.Audience;
+                options.ClaimsIssuer = authSettings.Issuer;
                 options.RequireHttpsMetadata = !Environement.IsDevelopment(); // disable https for OAuth2 provider
             });
 
@@ -71,19 +72,22 @@ namespace Api.Hosting
             #region Swagger
 
             // preparing URL for authentication
-            var authUrl = authSettings.Domain + authSettings.Routes["Authorize"] + "?tenantId=" + authSettings.Tenant;
-            var tokenUrl = authSettings.Domain + authSettings.Routes["Token"];
-            var refreshUrl = authSettings.Domain + authSettings.Routes["Refresh"];
+            var authUrl = authSettings.Authority + authSettings.Routes["Authorize"];
+            var tokenUrl = authSettings.Authority + authSettings.Routes["Token"];
+            var refreshUrl = authSettings.Authority + authSettings.Routes["Refresh"];
             // preparing the list of scopes for swagger
             var configScopes = authSettings.Policies.SelectMany(p => p.Scopes);
             var scopes = new Dictionary<string, string>(configScopes.Select(e => new KeyValuePair<string, string>(e.Name, e.Description)));
-            scopes.Add("openid", "OAuth2 basic scope"); // we add the classic scope
+            // we add the classic scope
+            scopes.Add("openid", "OAuth2 basic scope");
+            scopes.Add("email", "OAuth2 basic scope");
+            scopes.Add("profile", "OAuth2 basic scope");
 
             services.AddSwaggerGen(options =>
             {
                 options.SwaggerDoc("v1", new OpenApiInfo { Title = Configuration.GetValue<string>("Title"), Version = "v1" });
 
-                options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
+                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
                     Type = SecuritySchemeType.OAuth2,
                     Flows = new OpenApiOAuthFlows
@@ -103,7 +107,7 @@ namespace Api.Hosting
                     {
                         new OpenApiSecurityScheme
                         {
-                            Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "oauth2" }
+                            Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
                         },
                         configScopes.Select(s => s.Name).ToArray() // all the scopes of the api (not the profile/openid/email)
                     }

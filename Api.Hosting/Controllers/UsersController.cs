@@ -41,7 +41,7 @@ namespace Api.Hosting.Controllers
             // to do that we need the user current Bearer token
             var userId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier).Value;
             var token = HttpContext.GetTokenAsync("access_token").Result;
-            var client = new RestClient(_authSettings.Domain);
+            var client = new RestClient(_authSettings.Authority);
             var req = new RestRequest(_authSettings.Routes["UserInfo"], Method.GET);
             req.AddHeader("Authorization", $"Bearer {token}");
             // request crafted, BOOM
