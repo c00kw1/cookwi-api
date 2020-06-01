@@ -16,6 +16,7 @@ namespace Api.Hosting.Dto
         public Guid Id { get; set; }
 
         [JsonProperty("ownerId")]
+        [JsonConverter(typeof(GuidConverter))]
         [SwaggerSchema("Owner identifier", ReadOnly = true)]
         public Guid OwnerId { get; set; }
 
@@ -30,6 +31,14 @@ namespace Api.Hosting.Dto
         [JsonProperty("description")]
         [SwaggerSchema("Description of the recipe")]
         public string Description { get; set; }
+
+        [JsonProperty("cookingTime")]
+        [SwaggerSchema("Cooking time (HH:mm)")]
+        public TimeSpan CookingTime { get; set; }
+
+        [JsonProperty("bakingTime")]
+        [SwaggerSchema("Baking time (HH:mm)")]
+        public TimeSpan BakingTime { get; set; }
 
         [JsonProperty("imagePath")]
         [SwaggerSchema("Path of the main recipe's image")]
@@ -59,6 +68,8 @@ namespace Api.Hosting.Dto
                 DateCreation = entity.DateCreation,
                 Title = entity.Title,
                 Description = entity.Description,
+                CookingTime = entity.CookingTime,
+                BakingTime = entity.BakingTime,
                 ImagePath = entity.ImagePath,
                 Tags = entity.TagsLink.Select(rt => rt.Tag.Dto()).ToArray(),
                 Steps = entity.Steps.Select(s => s.Dto()).ToArray(),
@@ -72,6 +83,8 @@ namespace Api.Hosting.Dto
             {
                 Title = recipe.Title,
                 Description = recipe.Description,
+                CookingTime = recipe.CookingTime,
+                BakingTime = recipe.BakingTime,
                 ImagePath = recipe.ImagePath
             };
             // we set the tags

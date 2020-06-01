@@ -29,6 +29,12 @@ namespace Api.Service.Models
         [Column("rcpimg")]
         public string ImagePath { get; set; }
 
+        [Column("coktim")]
+        public TimeSpan CookingTime { get; set; }
+
+        [Column("baktim")]
+        public TimeSpan BakingTime { get; set; }
+
         public ICollection<RecipeTag> TagsLink { get; set; }
 
         public ICollection<RecipeStep> Steps { get; set; }

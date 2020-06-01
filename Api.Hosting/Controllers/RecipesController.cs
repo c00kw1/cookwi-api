@@ -35,9 +35,8 @@ namespace Api.Hosting.Controllers
         [SwaggerResponse(200, "List of all the recipes for current authenticated user", typeof(RecipeDto[]))]
         public async Task<IActionResult> GetAllRecipes()
         {
-            var user = UserHelper.GetAuth0UserId(HttpContext.User);
-            // TODO : limit to the current user
-            var all = await _context.GetAllRecipes();
+            var userId = UserHelper.GetId(HttpContext.User);
+            var all = await _context.GetAllRecipes(userId);
             return Ok(all.Select(r => r.Dto()).ToArray());
         }
 
@@ -52,8 +51,8 @@ namespace Api.Hosting.Controllers
         [SwaggerResponse(404, "Recipe not fount")]
         public async Task<IActionResult> GetRecipeById(Guid id)
         {
-            // TODO : limit to current user
-            var recipe = await _context.GetOneRecipe(id);
+            var userId = UserHelper.GetId(HttpContext.User);
+            var recipe = await _context.GetOneRecipe(id, userId);
 
             if (recipe == null)
             {
@@ -72,13 +71,13 @@ namespace Api.Hosting.Controllers
         [SwaggerResponse(201, "Recipe object created and inserted in db", typeof(RecipeDto))]
         [SwaggerResponse(400, "At least one of recipe's field is wrong", typeof(string))]
         [SwaggerResponse(500, "Cannot add the new recipe as an error occured")]
-        public async Task<IActionResult> PostRecipe([FromBody] RecipeDto recipe)
+        public async Task<IActionResult> CreateRecipe([FromBody] RecipeDto recipe)
         {
             try
             {
                 var recipeToAdd = recipe.Model();
                 recipeToAdd.DateCreation = DateTime.Now;
-                recipeToAdd.OwnerId = Guid.Parse("788d1be4-16a7-4c41-9042-862e43425d6f"); // TODO : will be the real user id from auth0
+                recipeToAdd.OwnerId = UserHelper.GetId(HttpContext.User);
                 recipeToAdd.TagsLink = await FilterExistingTags(recipeToAdd.TagsLink.ToList());
                 recipeToAdd.Ingredients = CheckIngredientsUnits(recipeToAdd.Ingredients.ToList(), out var badUnits);
 
@@ -110,15 +109,15 @@ namespace Api.Hosting.Controllers
         [SwaggerResponse(400, "At least one of recipe's field is wrong", typeof(string[]))]
         [SwaggerResponse(404, "Recipe to update is not found / does not exist")]
         [SwaggerResponse(500, "Cannot update the recipe as an error occured")]
-        public async Task<IActionResult> PutRecipe(Guid id, [FromBody]RecipeDto updatedRecipe)
+        public async Task<IActionResult> UpdateRecipe(Guid id, [FromBody]RecipeDto updatedRecipe)
         {
-            // TODO : check the user
             try
             {
-                var existingRecipe = await _context.GetOneRecipe(id);
+                var userId = UserHelper.GetId(HttpContext.User);
+                var existingRecipe = await _context.GetOneRecipe(id, userId);
                 if (existingRecipe == null)
                 {
-                    return NotFound($"Recipe {id} cannot be found");
+                    return NotFound($"Recipe {id} cannot be found on this account");
                 }
 
                 var errors = await UpdateRecipe(updatedRecipe, existingRecipe);
