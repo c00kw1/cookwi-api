@@ -1,3 +1,4 @@
+using Api.Hosting.AdminAPI;
 using Api.Hosting.Authorization;
 using Api.Hosting.Settings;
 using Api.Service;
@@ -30,10 +31,15 @@ namespace Api.Hosting
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            // gather authentication settings
-            var section = Configuration.GetSection("Authentication");
-            var authSettings = section.Get<AuthenticationSettings>();
-            services.Configure<AuthenticationSettings>(section);
+            // gather authentication and sso settings
+            var authSection = Configuration.GetSection("Authentication");
+            var authSettings = authSection.Get<AuthenticationSettings>();
+            services.Configure<AuthenticationSettings>(authSection);
+
+            var ssoSection = Configuration.GetSection("Sso");
+            var ssoSettings = ssoSection.Get<SsoSettings>();
+            services.Configure<SsoSettings>(ssoSection);
+            services.AddSingleton(typeof(TokensFactory));
 
             services.AddControllers().AddNewtonsoftJson(options => options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
             services.AddCors();
@@ -47,9 +53,9 @@ namespace Api.Hosting
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
             }).AddJwtBearer(options =>
             {
-                options.Authority = authSettings.Authority;
-                options.Audience = authSettings.Audience;
-                options.ClaimsIssuer = authSettings.Issuer;
+                options.Authority = ssoSettings.Authority;
+                options.Audience = ssoSettings.Audience;
+                options.ClaimsIssuer = ssoSettings.Issuer;
                 options.RequireHttpsMetadata = !Environement.IsDevelopment(); // disable https for OAuth2 provider
             });
 
@@ -59,7 +65,7 @@ namespace Api.Hosting
                 {
                     options.AddPolicy(policy.Name, builder =>
                     {
-                        policy.Scopes.ForEach(scope => builder.Requirements.Add(new HasScopeRequirement(scope.Name, authSettings.Issuer)));
+                        policy.Scopes.ForEach(scope => builder.Requirements.Add(new HasScopeRequirement(scope.Name, ssoSettings.Issuer)));
                     });
                 });
                 options.DefaultPolicy = options.GetPolicy("default"); // this is required, so check in appsettings.json you have at least a default policy
@@ -72,9 +78,9 @@ namespace Api.Hosting
             #region Swagger
 
             // preparing URL for authentication
-            var authUrl = authSettings.Authority + authSettings.Routes["Authorize"];
-            var tokenUrl = authSettings.Authority + authSettings.Routes["Token"];
-            var refreshUrl = authSettings.Authority + authSettings.Routes["Refresh"];
+            var authUrl = ssoSettings.Authority + ssoSettings.Routes["Authorize"];
+            var tokenUrl = ssoSettings.Authority + ssoSettings.Routes["Token"];
+            var refreshUrl = ssoSettings.Authority + ssoSettings.Routes["Refresh"];
             // preparing the list of scopes for swagger
             var configScopes = authSettings.Policies.SelectMany(p => p.Scopes);
             var scopes = new Dictionary<string, string>(configScopes.Select(e => new KeyValuePair<string, string>(e.Name, e.Description)));
@@ -85,7 +91,8 @@ namespace Api.Hosting
 
             services.AddSwaggerGen(options =>
             {
-                options.SwaggerDoc("v1", new OpenApiInfo { Title = Configuration.GetValue<string>("Title"), Version = "v1" });
+                options.SwaggerDoc("APIv1", new OpenApiInfo { Title = Configuration.GetValue<string>("Title"), Version = "v1" });
+                options.SwaggerDoc("Adminv1", new OpenApiInfo { Title = Configuration.GetValue<string>("Title"), Version = "v1" });
 
                 options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
@@ -126,6 +133,8 @@ namespace Api.Hosting
             services.AddDbContext<CookwiDbContext>(options => options.UseNpgsql(dbSettings.ConnectionString));
 
             #endregion
+
+            services.AddMvc(c => c.Conventions.Add(new ApiExplorerGroupPerNamespaceConvention()));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -155,7 +164,8 @@ namespace Api.Hosting
             app.UseSwaggerUI(options =>
             {
                 options.OAuthAppName($"{Configuration.GetValue<string>("Title")} swagger");
-                options.SwaggerEndpoint("/swagger/v1/swagger.json", $"{Configuration.GetValue<string>("Title")} V1");
+                options.SwaggerEndpoint("/swagger/APIv1/swagger.json", $"{Configuration.GetValue<string>("Title")} V1");
+                options.SwaggerEndpoint("/swagger/Adminv1/swagger.json", $"{Configuration.GetValue<string>("Title")} V1 Admin");
                 options.OAuthClientId(Configuration["Authentication:SwaggerClientId"]);
                 options.OAuthScopeSeparator(" ");
                 options.OAuthUsePkce();

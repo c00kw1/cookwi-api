@@ -1,19 +1,15 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Security.Claims;
 
 namespace Api.Hosting.Helpers
 {
-    public class UserHelper
+    public static class UserHelper
     {
-        public static string GetAuth0UserId(ClaimsPrincipal claimsPrincipal)
+        public static Guid GetId(ClaimsPrincipal user)
         {
-            var claim = claimsPrincipal.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.NameIdentifier);
-            if (claim == null || claim.Value == null || claim.Value == "")
-            {
-                return null;
-            }
-
-            return claim.Value;
+            var userId = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            return Guid.Parse(userId);
         }
     }
 }

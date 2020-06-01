@@ -1,4 +1,5 @@
 ﻿using Api.Service.Models;
+using Api.Service.Models.Admin;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
@@ -18,10 +19,15 @@ namespace Api.Service
         public DbSet<RecipeIngredient> RecipeIngredients { get; set; }
         public DbSet<RecipeIngredientUnit> RecipeIngredientUnits { get; set; }
 
+        public DbSet<User> Users { get; set; }
+        public DbSet<UserInvitation> UserInvitations { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
             builder.HasPostgresExtension("uuid-ossp");
+
+            #region Recipes and tags
 
             // Recipe -> Steps
             builder.Entity<Recipe>().HasMany(recipe => recipe.Steps)
@@ -50,22 +56,24 @@ namespace Api.Service
                                               .WithMany(riunit => riunit.RecipeIngredients)
                                               .HasForeignKey(ringredient => ringredient.UnitName)
                                               .IsRequired();
+
+            #endregion
         }
 
         #region Recipes
 
-        public async Task<Recipe[]> GetAllRecipes()
+        public async Task<Recipe[]> GetAllRecipes(Guid userId)
         {
-            return await Recipes
+            return await Recipes.Where(r => r.OwnerId == userId)
                           .Include(r => r.Steps)
                           .Include(r => r.Ingredients).ThenInclude(i => i.Unit)
                           .Include(r => r.TagsLink).ThenInclude(rt => rt.Tag)
                           .ToArrayAsync();
         }
 
-        public async Task<Recipe> GetOneRecipe(Guid id)
+        public async Task<Recipe> GetOneRecipe(Guid id, Guid userId)
         {
-            return await Recipes.Where(r => r.Id == id)
+            return await Recipes.Where(r => r.Id == id && r.OwnerId == userId)
                           .Include(r => r.Steps)
                           .Include(r => r.Ingredients).ThenInclude(i => i.Unit)
                           .Include(r => r.TagsLink).ThenInclude(rt => rt.Tag)
