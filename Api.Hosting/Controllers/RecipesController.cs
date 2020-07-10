@@ -1,13 +1,17 @@
 ﻿using Api.Hosting.Dto;
 using Api.Hosting.Helpers;
+using Api.Hosting.Utils;
 using Api.Service;
 using Api.Service.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.Annotations;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -20,10 +24,12 @@ namespace Api.Hosting.Controllers
     public class RecipesController : Controller
     {
         private CookwiDbContext _context;
+        private S3 _s3;
 
-        public RecipesController(CookwiDbContext dbContext)
+        public RecipesController(CookwiDbContext dbContext, S3 s3)
         {
             _context = dbContext;
+            _s3 = s3;
         }
 
         /// <summary>
@@ -37,7 +43,7 @@ namespace Api.Hosting.Controllers
         {
             var userId = UserHelper.GetId(HttpContext.User);
             var all = await _context.GetAllRecipes(userId);
-            return Ok(all.Select(r => r.Dto()).ToArray());
+            return Ok(all.Select(r => r.Dto(_s3)).ToArray());
         }
 
         /// <summary>
@@ -58,7 +64,7 @@ namespace Api.Hosting.Controllers
             {
                 return NotFound();
             }
-            return Ok(recipe.Dto());
+            return Ok(recipe.Dto(_s3));
         }
 
         /// <summary>
@@ -88,7 +94,7 @@ namespace Api.Hosting.Controllers
                 
                 var added = await _context.Recipes.AddAsync(recipeToAdd);
                 await _context.SaveChangesAsync();
-                return Created(HttpContext?.Request.Path.Value ?? "", added.Entity.Dto());
+                return Created(HttpContext?.Request.Path.Value ?? "", added.Entity.Dto(_s3));
             }
             catch
             {
@@ -127,12 +133,58 @@ namespace Api.Hosting.Controllers
                 }
 
                 await _context.SaveChangesAsync();
-                return Created(HttpContext.Request.Path, existingRecipe.Dto());
+                return Created(HttpContext.Request.Path, existingRecipe.Dto(_s3));
             }
             catch
             {
                 return StatusCode(500, "The recipe cannot be updated");
             }
+        }
+
+        [HttpPost]
+        [Route("{id}/image")]
+        [SwaggerOperation("Adds an image to a recipe")]
+        [SwaggerResponse(200, "Image added")]
+        [SwaggerResponse(400, "Image format is wrong")]
+        [SwaggerResponse(403, "This recipe does not belong to the user")]
+        [SwaggerResponse(500, "An error occured with the server (s3 ?)")]
+        public async Task<IActionResult> AddImage(Guid id, IFormFile file)
+        {
+            var authorizedFormats = new[] { "image/png", "image/jpeg" };
+            var minWidth = 800;
+            var minHeight = 600;
+            var maxSize = 10.Mb();
+
+            var recipe = await _context.GetOneRecipe(id, UserHelper.GetId(HttpContext.User));
+            if (recipe == null)
+            {
+                return StatusCode(403, $"Recipe {id} does not belong to you");
+            }
+
+            if (file == null)
+            {
+                return BadRequest("No image sent");
+            }
+            if (!authorizedFormats.Contains(file.ContentType.ToLower()))
+            {
+                return BadRequest($"Bad image format, authorized are {string.Join(", ", authorizedFormats)}");
+            }
+
+            using (var image = Image.FromStream(file.OpenReadStream()))
+            {
+                if (image.Width < 800 || image.Height < 600 || file.Length > maxSize)
+                {
+                    return BadRequest($"Image must be at least {minWidth}x{minHeight} pixels and less than {maxSize}Mo");
+                }
+            }
+
+            var name = $"recipes/{id}/cover{Path.GetExtension(file.FileName)}";
+            await _s3.AddFile(name, file);
+
+            recipe.ImagePath = name;
+            _context.SaveChanges();
+
+            return Ok();
         }
 
         #region Ingredients

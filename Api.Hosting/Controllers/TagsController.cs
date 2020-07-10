@@ -1,4 +1,5 @@
 ﻿using Api.Hosting.Dto;
+using Api.Hosting.Helpers;
 using Api.Service;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -55,7 +56,9 @@ namespace Api.Hosting.Controllers
         {
             try
             {
-                return NotFound("Not implemented route");
+                var tags = await _context.GetAllMyTags(UserHelper.GetId(HttpContext.User));
+                var dtoTags = tags.Select(t => t.Dto());
+                return Ok(dtoTags);
             }
             catch
             {

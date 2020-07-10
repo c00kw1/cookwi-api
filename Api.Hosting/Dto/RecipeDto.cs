@@ -1,5 +1,7 @@
 ﻿using Api.Hosting.Helpers;
+using Api.Hosting.Utils;
 using Api.Service.Models;
+using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using Swashbuckle.AspNetCore.Annotations;
 using System;
@@ -41,7 +43,7 @@ namespace Api.Hosting.Dto
         public TimeSpan BakingTime { get; set; }
 
         [JsonProperty("imagePath")]
-        [SwaggerSchema("Path of the main recipe's image")]
+        [SwaggerSchema("Path of the main recipe's image", ReadOnly = true)]
         public string ImagePath { get; set; }
 
         [JsonProperty("tags")]
@@ -59,7 +61,7 @@ namespace Api.Hosting.Dto
 
     public static class RecipeDtoExtensions
     {
-        public static RecipeDto Dto(this Recipe entity)
+        public static RecipeDto Dto(this Recipe entity, S3 s3)
         {
             return new RecipeDto
             {
@@ -70,7 +72,7 @@ namespace Api.Hosting.Dto
                 Description = entity.Description,
                 CookingTime = entity.CookingTime,
                 BakingTime = entity.BakingTime,
-                ImagePath = entity.ImagePath,
+                ImagePath = s3.GetPresignedUrl(entity.ImagePath).GetAwaiter().GetResult(),
                 Tags = entity.TagsLink.Select(rt => rt.Tag.Dto()).ToArray(),
                 Steps = entity.Steps.Select(s => s.Dto()).ToArray(),
                 Ingredients = entity.Ingredients.Select(s => s.Dto()).ToArray()
@@ -85,7 +87,7 @@ namespace Api.Hosting.Dto
                 Description = recipe.Description,
                 CookingTime = recipe.CookingTime,
                 BakingTime = recipe.BakingTime,
-                ImagePath = recipe.ImagePath
+                ImagePath = ""
             };
             // we set the tags
             newRecipe.TagsLink = recipe.Tags.Select(newTag =>

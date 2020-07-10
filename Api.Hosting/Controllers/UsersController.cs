@@ -5,6 +5,7 @@ using Api.Service;
 using Keycloak.Net;
 using Keycloak.Net.Models.Users;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.Annotations;
 using System;
@@ -35,15 +36,21 @@ namespace Api.Hosting.Controllers
         [HttpPost("register/{invitationId}")]
         [SwaggerOperation(Summary = "Register a new user")]
         [SwaggerResponse(201, "User created", typeof(UserDto))]
+        [SwaggerResponse(400, "User is not well formatted")]
         [SwaggerResponse(401, "Not authorized")]
         [SwaggerResponse(500, "Server error")]
         public async Task<IActionResult> Register(Guid invitationId, [FromBody] UserDto user)
         {
+
             // we first check the invitation Guid
             var invitation = _dbContext.UserInvitations.FirstOrDefault(i => i.Id == invitationId && !i.Used && i.DateExpiration > DateTime.Now);
             if (invitation == null)
             {
                 return Unauthorized($"Invitation code {invitationId} is not valid (can be wrong, already used or just expired). Ask a new one.");
+            }
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
             }
 
             var client = new KeycloakClient(_ssoSettings.Api.BaseUrl, () => _tokensFactory.AccessToken);
