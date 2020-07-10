@@ -1,6 +1,7 @@
 using Api.Hosting.AdminAPI;
 using Api.Hosting.Authorization;
 using Api.Hosting.Settings;
+using Api.Hosting.Utils;
 using Api.Service;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -36,10 +37,17 @@ namespace Api.Hosting
             var authSettings = authSection.Get<AuthenticationSettings>();
             services.Configure<AuthenticationSettings>(authSection);
 
+            // sso settings
             var ssoSection = Configuration.GetSection("Sso");
-            var ssoSettings = ssoSection.Get<SsoSettings>();
             services.Configure<SsoSettings>(ssoSection);
+            var ssoSettings = ssoSection.Get<SsoSettings>();
+            // s3 settings
+            var s3Settings = S3Settings.Get(Configuration["S3SettingsPath"]);
+            services.AddSingleton(s3Settings);
+            // to handle tokens for SSO Admin API
             services.AddSingleton(typeof(TokensFactory));
+            // to handle s3 operations
+            services.AddSingleton(typeof(S3));
 
             services.AddControllers().AddNewtonsoftJson(options => options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
             services.AddCors();

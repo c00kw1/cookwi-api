@@ -2,6 +2,8 @@
 
 namespace Api.Hosting.Settings
 {
+    #region Sso settings
+
     public class SsoSettings
     {
         public string Authority { get; set; }
@@ -20,6 +22,10 @@ namespace Api.Hosting.Settings
         public string RedirectUrl { get; set; }
     }
 
+#endregion
+
+    #region Authentication settings
+
     public class AuthenticationSettings
     {
         public string SwaggerClientId { get; set; }
@@ -37,4 +43,6 @@ namespace Api.Hosting.Settings
         public string Name { get; set; }
         public string Description { get; set; }
     }
+
+    #endregion
 }

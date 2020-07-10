@@ -95,6 +95,12 @@ namespace Api.Service
             return existingTag;
         }
 
+        public async Task<Tag[]> GetAllMyTags(Guid userId)
+        {
+            var recipes = await GetAllRecipes(userId);
+            return recipes.SelectMany(r => r.TagsLink.Select(t => t.Tag)).Distinct().ToArray();
+        }
+
         #endregion
     }
 }
