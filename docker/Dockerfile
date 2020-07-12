@@ -4,13 +4,12 @@ ARG path_to_binaries="./api-package"
 ARG environment="Homologation"
 
 COPY $path_to_binaries/ /var/www/api/
-COPY ./entrypoint.sh /var/www/api/
-RUN chmod +x /var/www/api/entrypoint.sh
+
+RUN apt-get install -y libc6-dev libgdiplus libx11-dev
 
 EXPOSE 5000
 
 WORKDIR /var/www/api/
 ENV ASPNETCORE_ENVIRONMENT $environment
 ENV ASPNETCORE_URLS "http://*:5000"
-ENTRYPOINT [ "./entrypoint.sh" ]
-CMD [ "dotnet", "Api.Hosting.dll" ]
+ENTRYPOINT [ "dotnet", "Api.Hosting.dll" ]
