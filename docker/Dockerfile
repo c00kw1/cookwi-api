@@ -5,7 +5,7 @@ ARG environment="Homologation"
 
 COPY $path_to_binaries/ /var/www/api/
 
-RUN apt-get install -y libc6-dev libgdiplus libx11-dev
+RUN apt-get update && apt-get install -y libc6-dev libgdiplus libx11-dev
 
 EXPOSE 5000
 
