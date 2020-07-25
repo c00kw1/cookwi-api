@@ -52,7 +52,7 @@ namespace Api.Hosting.Controllers
         /// <returns>One Recipe</returns>
         [HttpGet]
         [Route("{id}")]
-        [SwaggerOperation(Summary = "Retrieve all the recipes for the current user")]
+        [SwaggerOperation(Summary = "Retrieve one recipe by its ID")]
         [SwaggerResponse(200, "Asked recipe", typeof(RecipeDto))]
         [SwaggerResponse(404, "Recipe not fount")]
         public async Task<IActionResult> GetRecipeById(Guid id)
