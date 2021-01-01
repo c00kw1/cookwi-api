@@ -1,35 +1,25 @@
-﻿using System;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using MongoDB.Bson.Serialization.Attributes;
+using System;
 
 namespace Api.Service.Models.Admin
 {
-    [Table("usrinv")]
-    [Serializable]
-    public class UserInvitation
+    public class UserInvitation : MongoEntity
     {
-        public static UserInvitation GenerateNew(double validForHours = 48)
+        [BsonRepresentation(MongoDB.Bson.BsonType.DateTime)]
+        [BsonElement("expiration")]
+        public DateTime Expiration { get; set; }
+
+        [BsonRepresentation(MongoDB.Bson.BsonType.Boolean)]
+        [BsonElement("used")]
+        public bool Used { get; set; }
+
+        public static UserInvitation GenerateNew()
         {
             return new UserInvitation
             {
-                DateCreation = DateTime.Now,
-                DateExpiration = DateTime.Now.AddHours(validForHours),
-                Used = false
+                Used = false,
+                Expiration = DateTime.UtcNow.AddDays(3)
             };
         }
-
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        [Column("id")]
-        public Guid Id { get; set; }
-
-        [Column("datadd")]
-        public DateTime DateCreation { get; set; }
-
-        [Column("datexp")]
-        public DateTime DateExpiration { get; set; }
-
-        [Column("use")]
-        public bool Used { get; set; }
     }
 }

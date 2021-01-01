@@ -9,15 +9,11 @@ namespace Api.Hosting.Dto.Admin
     {
         [JsonProperty("id")]
         [SwaggerSchema("The id to use for user registration", ReadOnly = true)]
-        public Guid Id { get; set; }
+        public string Id { get; set; }
 
-        [JsonProperty("dateCreation")]
-        [SwaggerSchema("The creation date of the invitation", ReadOnly = true)]
-        public DateTime DateCreation { get; set; }
-
-        [JsonProperty("dateExpiration")]
+        [JsonProperty("expiration")]
         [SwaggerSchema("The expiration date for this invitation", ReadOnly = true)]
-        public DateTime DateExpiration { get; set; }
+        public DateTime Expiration { get; set; }
 
         [JsonProperty("used")]
         [SwaggerSchema("Has this invitation already been used ?", ReadOnly = true)]
@@ -31,8 +27,7 @@ namespace Api.Hosting.Dto.Admin
             return new UserInvitationDto
             {
                 Id = invitation.Id,
-                DateCreation = invitation.DateCreation,
-                DateExpiration = invitation.DateExpiration,
+                Expiration = invitation.Expiration,
                 Used = invitation.Used
             };
         }

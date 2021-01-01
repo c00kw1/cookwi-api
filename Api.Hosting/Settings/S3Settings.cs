@@ -1,6 +1,8 @@
-﻿namespace Api.Hosting.Settings
+﻿using Api.Service.Settings;
+
+namespace Api.Hosting.Settings
 {
-    public class S3Settings : SettingsBase<S3Settings>
+    public class S3Settings : FileSettings<S3Settings>
     {
         public string Endpoint { get; set; }
         public bool Ssl { get; set; }

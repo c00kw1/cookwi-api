@@ -1,19 +1,19 @@
 ﻿using Api.Hosting.Dto;
 using Api.Hosting.Helpers;
 using Api.Hosting.Utils;
-using Api.Service;
+using Api.Service.Exceptions;
 using Api.Service.Models;
+using Api.Service.Mongo;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Swashbuckle.AspNetCore.Annotations;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace Api.Hosting.Controllers
 {
@@ -23,13 +23,18 @@ namespace Api.Hosting.Controllers
     [Authorize]
     public class RecipesController : Controller
     {
-        private CookwiDbContext _context;
-        private S3 _s3;
+        private ILogger _logger;
 
-        public RecipesController(CookwiDbContext dbContext, S3 s3)
+        private S3 _s3;
+        private RecipesService _recipesService;
+        private QuantityUnitsService _unitsService;
+
+        public RecipesController(S3 s3, RecipesService recipesService, QuantityUnitsService unitsService, ILogger<RecipesController> logger)
         {
-            _context = dbContext;
             _s3 = s3;
+            _recipesService = recipesService;
+            _unitsService = unitsService;
+            _logger = logger;
         }
 
         /// <summary>
@@ -37,13 +42,29 @@ namespace Api.Hosting.Controllers
         /// </summary>
         /// <returns>List of recipes</returns>
         [HttpGet]
-        [SwaggerOperation(Summary = "Retrieve all the recipes for the current user")]
+        [SwaggerOperation(Summary = "Retrieve all the recipes for the authenticated user")]
         [SwaggerResponse(200, "List of all the recipes for current authenticated user", typeof(RecipeDto[]))]
-        public async Task<IActionResult> GetAllRecipes()
+        [SwaggerResponse(404, "Resource not found")]
+        [SwaggerResponse(500, "Internal server error")]
+        public IActionResult GetAllRecipes()
         {
-            var userId = UserHelper.GetId(HttpContext.User);
-            var all = await _context.GetAllRecipes(userId);
-            return Ok(all.Select(r => r.Dto(_s3)).ToArray());
+            try
+            {
+                var userId = UserHelper.GetId(HttpContext.User);
+                var all = _recipesService.GetAll(userId);
+
+                return Ok(all.Select(r => r.Dto(_s3)).ToArray());
+            }
+            catch (NotFoundException e)
+            {
+                _logger.LogInformation(e.Message);
+                return NotFound();
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($"Cannot get all recipes : {e}");
+                return StatusCode(500, "Cannot get the list of recipes, an unexpected error has occured.");
+            }
         }
 
         /// <summary>
@@ -54,17 +75,32 @@ namespace Api.Hosting.Controllers
         [Route("{id}")]
         [SwaggerOperation(Summary = "Retrieve one recipe by its ID")]
         [SwaggerResponse(200, "Asked recipe", typeof(RecipeDto))]
-        [SwaggerResponse(404, "Recipe not fount")]
-        public async Task<IActionResult> GetRecipeById(Guid id)
+        [SwaggerResponse(400, "Bad id format")]
+        [SwaggerResponse(404, "Recipe not found")]
+        [SwaggerResponse(500, "Internal server error")]
+        public IActionResult GetRecipeById(string id)
         {
-            var userId = UserHelper.GetId(HttpContext.User);
-            var recipe = await _context.GetOneRecipe(id, userId);
-
-            if (recipe == null)
+            try
             {
-                return NotFound();
+                var userId = UserHelper.GetId(HttpContext.User);
+                var recipe = _recipesService.GetOne(id, userId);
+
+                if (recipe == null)
+                {
+                    return NotFound();
+                }
+
+                return Ok(recipe.Dto(_s3));
             }
-            return Ok(recipe.Dto(_s3));
+            catch (FormatException e)
+            {
+                return BadRequest("Bad id format");
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($"Cannot get the recipe by id {id} - {e}");
+                return StatusCode(500, "Cannot get the recipe, an unexpected error has occured");
+            }
         }
 
         /// <summary>
@@ -77,27 +113,25 @@ namespace Api.Hosting.Controllers
         [SwaggerResponse(201, "Recipe object created and inserted in db", typeof(RecipeDto))]
         [SwaggerResponse(400, "At least one of recipe's field is wrong", typeof(string))]
         [SwaggerResponse(500, "Cannot add the new recipe as an error occured")]
-        public async Task<IActionResult> CreateRecipe([FromBody] RecipeDto recipe)
+        public IActionResult CreateRecipe([FromBody] RecipeDto recipe)
         {
             try
             {
                 var recipeToAdd = recipe.Model();
-                recipeToAdd.DateCreation = DateTime.Now;
                 recipeToAdd.OwnerId = UserHelper.GetId(HttpContext.User);
-                recipeToAdd.TagsLink = await FilterExistingTags(recipeToAdd.TagsLink.ToList());
                 recipeToAdd.Ingredients = CheckIngredientsUnits(recipeToAdd.Ingredients.ToList(), out var badUnits);
 
                 if (badUnits.Any())
                 {
                     return BadRequest($"Some quantity units used in ingredients are unknown, please chose among the ones provided. Errors on : {string.Join(';', badUnits)}");
                 }
-                
-                var added = await _context.Recipes.AddAsync(recipeToAdd);
-                await _context.SaveChangesAsync();
-                return Created(HttpContext?.Request.Path.Value ?? "", added.Entity.Dto(_s3));
+
+                var added = _recipesService.Create(recipeToAdd);
+                return Created(HttpContext?.Request.Path.Value ?? "", added.Dto(_s3));
             }
-            catch
+            catch (Exception e)
             {
+                _logger.LogError($"Recipe cannot be added - {e}");
                 return StatusCode(500, "The recipe cannot be added");
             }
         }
@@ -111,32 +145,49 @@ namespace Api.Hosting.Controllers
         [HttpPut]
         [Route("{id}")]
         [SwaggerOperation(Summary = "Update an existing recipe")]
-        [SwaggerResponse(201, "Recipe object updated in db", typeof(RecipeDto))]
+        [SwaggerResponse(200, "Recipe object updated in db", typeof(RecipeDto))]
         [SwaggerResponse(400, "At least one of recipe's field is wrong", typeof(string[]))]
         [SwaggerResponse(404, "Recipe to update is not found / does not exist")]
         [SwaggerResponse(500, "Cannot update the recipe as an error occured")]
-        public async Task<IActionResult> UpdateRecipe(Guid id, [FromBody]RecipeDto updatedRecipe)
+        public IActionResult UpdateRecipe(string id, [FromBody]RecipeDto updatedRecipe)
         {
+            var userId = UserHelper.GetId(HttpContext.User);
+
             try
             {
-                var userId = UserHelper.GetId(HttpContext.User);
-                var existingRecipe = await _context.GetOneRecipe(id, userId);
-                if (existingRecipe == null)
+                var oldRecipe = _recipesService.GetOne(id, userId);
+                if (oldRecipe == null)
                 {
-                    return NotFound($"Recipe {id} cannot be found on this account");
+                    return NotFound();
                 }
-
-                var errors = await UpdateRecipe(updatedRecipe, existingRecipe);
-                if (errors.Any())
+                var entity = updatedRecipe.Model();
+                // re-write important informations
+                entity.Id = id;
+                entity.OwnerId = userId;
+                entity.CreationDate = oldRecipe.CreationDate;
+                entity.ImagePath = oldRecipe.ImagePath;
+                var ingredients = CheckIngredientsUnits(entity.Ingredients, out var badUnits);
+                if (badUnits != null && badUnits.Count > 0)
                 {
-                    return BadRequest(errors);
+                    return BadRequest("Bad ingredients units used.");
                 }
+                entity.Ingredients = ingredients;
 
-                await _context.SaveChangesAsync();
-                return Created(HttpContext.Request.Path, existingRecipe.Dto(_s3));
+                var result = _recipesService.Update(entity);
+                if (!result) throw new Exception("Mongo result is not acknoledge. Unexpected error.");
+
+                var returned = _recipesService.GetOne(entity.Id, userId);
+
+                return Ok(returned.Dto(_s3));
             }
-            catch
+            catch (NotFoundException)
             {
+                _logger.LogInformation($"Recipe to update {id} for user {userId} is not found");
+                return NotFound();
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($"Cannot update recipe {updatedRecipe.Id} for user {userId} - {e}");
                 return StatusCode(500, "The recipe cannot be updated");
             }
         }
@@ -146,45 +197,54 @@ namespace Api.Hosting.Controllers
         [SwaggerOperation("Adds an image to a recipe")]
         [SwaggerResponse(200, "Image added")]
         [SwaggerResponse(400, "Image format is wrong")]
-        [SwaggerResponse(403, "This recipe does not belong to the user")]
+        [SwaggerResponse(404, "Recipe not found")]
         [SwaggerResponse(500, "An error occured with the server (s3 ?)")]
-        public async Task<IActionResult> AddImage(Guid id, IFormFile file)
+        public IActionResult AddImage(string id, IFormFile file)
         {
+            var userId = UserHelper.GetId(HttpContext.User);
             var authorizedFormats = new[] { "image/png", "image/jpeg" };
             var minWidth = 800;
             var minHeight = 600;
             var maxSize = 10.Mb();
 
-            var recipe = await _context.GetOneRecipe(id, UserHelper.GetId(HttpContext.User));
-            if (recipe == null)
+            try
             {
-                return StatusCode(403, $"Recipe {id} does not belong to you");
-            }
-
-            if (file == null)
-            {
-                return BadRequest("No image sent");
-            }
-            if (!authorizedFormats.Contains(file.ContentType.ToLower()))
-            {
-                return BadRequest($"Bad image format, authorized are {string.Join(", ", authorizedFormats)}");
-            }
-
-            using (var image = Image.FromStream(file.OpenReadStream()))
-            {
-                if (image.Width < 800 || image.Height < 600 || file.Length > maxSize)
+                var recipe = _recipesService.GetOne(id, userId);
+                if (recipe == null)
                 {
-                    return BadRequest($"Image must be at least {minWidth}x{minHeight} pixels and less than {maxSize}Mo");
+                    return NotFound();
                 }
+
+                if (file == null)
+                {
+                    return BadRequest("No image sent");
+                }
+                if (!authorizedFormats.Contains(file.ContentType.ToLower()))
+                {
+                    return BadRequest($"Bad image format, authorized are {string.Join(", ", authorizedFormats)}");
+                }
+
+                using (var image = Image.FromStream(file.OpenReadStream()))
+                {
+                    if (image.Width < 800 || image.Height < 600 || file.Length > maxSize)
+                    {
+                        return BadRequest($"Image must be at least {minWidth}x{minHeight} pixels and less than {maxSize}Mo");
+                    }
+                }
+
+                var name = $"recipes/{id}/cover{Path.GetExtension(file.FileName)}";
+                _s3.AddFile(name, file).GetAwaiter().GetResult();
+
+                recipe.ImagePath = name;
+                _recipesService.Update(recipe);
+
+                return Ok();
             }
-
-            var name = $"recipes/{id}/cover{Path.GetExtension(file.FileName)}";
-            await _s3.AddFile(name, file);
-
-            recipe.ImagePath = name;
-            _context.SaveChanges();
-
-            return Ok();
+            catch (Exception e)
+            {
+                _logger.LogError($"Cannot add image to recipe, internal error - {e}");
+                return StatusCode(500, "Cannot add image to the recipe, an unexpected error has occured.");
+            }
         }
 
         #region Ingredients
@@ -192,17 +252,45 @@ namespace Api.Hosting.Controllers
         [HttpGet]
         [Route("quantity-units")]
         [SwaggerOperation(Summary = "Get all the available quantity units")]
-        [SwaggerResponse(200, "Quantity units available", typeof(string[]))]
-        [SwaggerResponse(500, "An error occured while gathering quantity units")]
-        public async Task<IActionResult> GetAllQuantityUnits()
+        [SwaggerResponse(200, "The units", typeof(QuantityUnitDto[]))]
+        [SwaggerResponse(500, "An error has occured")]
+        public IActionResult GetAll()
         {
             try
             {
-                return Ok(await _context.RecipeIngredientUnits.Select(riu => riu.Name).ToArrayAsync());
+                var units = _unitsService.GetAll().Select(e => e.Dto()).ToArray();
+                return Ok(units);
             }
-            catch
+            catch (Exception e)
             {
-                return StatusCode(500, "Cannot retrieve the list of quantity units, an error occured");
+                _logger.LogError($"Cannot get all quantity units - {e}");
+                return StatusCode(500, "An error has occured");
+            }
+        }
+
+        #endregion
+
+        #region Tags
+
+        [HttpGet]
+        [Route("tags")]
+        [SwaggerOperation("Retrieve all tags used by current user's recipes")]
+        [SwaggerResponse(200, "All tags", typeof(string[]))]
+        [SwaggerResponse(500, "Unexpected error occured")]
+        public IActionResult GetAllTags()
+        {
+            var userId = UserHelper.GetId(HttpContext.User);
+
+            try
+            {
+                var tags = _recipesService.GetAllTags(userId);
+
+                return Ok(tags);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($"Cannot load all tags, an unexpected error occured - {e}");
+                return StatusCode(500, "Cannot retrieve all tags, an unexpected error occured");
             }
         }
 
@@ -210,82 +298,26 @@ namespace Api.Hosting.Controllers
 
         #region Utils
 
-        /// <summary>
-        /// Find existing tags out of <paramref name="givenRTags"/> and prepare a List for being transfered to EFCore
-        /// </summary>
-        /// <param name="givenRTags"></param>
-        /// <returns>Prepared list of RecipeTag</returns>
-        private async Task<List<RecipeTag>> FilterExistingTags(List<RecipeTag> givenRTags)
+        private List<RecipeIngredientMongo> CheckIngredientsUnits(List<RecipeIngredientMongo> givenIngredients, out List<string> badUnits)
         {
-            var toAddTagsNames = givenRTags.Select(t => t.Tag.Name).ToHashSet();
-            // we get the existing tags
-            var existingTags = await _context.Tags.Where(t => toAddTagsNames.Contains(t.Name)).ToListAsync();
-            // for each tag added by the user to its recipe
-            givenRTags.ForEach(rtag =>
-            {
-                var searchTag = existingTags.FirstOrDefault(t => t.Name == rtag.Tag.Name);
-                if (searchTag != null)
-                {
-                    rtag.Tag = searchTag;
-                    rtag.TagId = searchTag.Id;
-                }
-            });
-
-            return givenRTags;
-        }
-
-        private List<RecipeIngredient> CheckIngredientsUnits(List<RecipeIngredient> givenIngredients, out List<string> badUnits)
-        {
-            var availableUnits = _context.RecipeIngredientUnits.ToHashSet();
+            var availableUnits = _unitsService.GetAll().ToList();
             var notFoundUnits = new List<string>();
 
-            // for each ingredient the user wants to add we gonna check the unit in DB
+            // for each ingredient the user wants to add we gonna check the unit in Mongo
             givenIngredients.ForEach(ingredient =>
             {
-                var foundUnit = availableUnits.FirstOrDefault(existing => existing.Name == ingredient.UnitName);
+                var foundUnit = availableUnits.FirstOrDefault(existing => existing.Acronym == ingredient.Unit);
                 if (foundUnit == null)
                 {
                     // unit used is unknown, which is an error, we don't want users to do whatever they want with units
-                    notFoundUnits.Add(ingredient.UnitName);
+                    notFoundUnits.Add(ingredient.Unit);
                     return;
                 }
-                // if we found one in DB, we set the 
-                ingredient.Unit = foundUnit;
-                ingredient.UnitName = foundUnit.Name;
+                ingredient.Unit = foundUnit.Acronym;
             });
 
             badUnits = notFoundUnits;
             return givenIngredients;
-        }
-
-        /// <summary>
-        /// Will update <paramref name="existing"/> with <paramref name="updated"/> values
-        /// </summary>
-        /// <param name="updated">Received from API</param>
-        /// <param name="existing">DB existing object</param>
-        private async Task<List<string>> UpdateRecipe(RecipeDto updated, Recipe existing)
-        {
-            var errors = new List<string>();
-
-            _context.Entry(existing).State = EntityState.Modified;
-            existing.Title = updated.Title;
-            existing.Description = updated.Description;
-            existing.ImagePath = updated.ImagePath;
-
-            //remove all tags links to add new ones from updated entity
-            _context.RecipeTags.RemoveRange(existing.TagsLink);
-            existing.TagsLink = await FilterExistingTags(updated.Model().TagsLink.ToList());
-
-            // remove all current steps to add new ones from updated entity
-            _context.RecipeSteps.RemoveRange(existing.Steps);
-            existing.Steps = updated.Steps.Select(step => step.Model()).ToList();
-
-            // remove all current ingredients to add new ones from updated entity
-            _context.RecipeIngredients.RemoveRange(existing.Ingredients);
-            existing.Ingredients = CheckIngredientsUnits(updated.Model().Ingredients.ToList(), out var badUnits);
-            if (badUnits.Any()) errors.Add($"Usage of unknown quantity units: {string.Join(';', badUnits)}");
-
-            return errors;
         }
 
         #endregion

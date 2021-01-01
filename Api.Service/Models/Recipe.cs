@@ -1,44 +1,65 @@
-﻿using System;
+﻿using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
+using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Api.Service.Models
 {
-    [Table("rcp")]
-    [Serializable]
-    public class Recipe
+    public class Recipe : MongoEntity
     {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        [Column("id")]
-        public Guid Id { get; set; }
-
-        [Column("ownid")]
-        public Guid OwnerId { get; set; }
-
-        [Column("datadd")]
-        public DateTime DateCreation { get; set; }
-
-        [Column("rcptit")]
+        [BsonRepresentation(BsonType.String)]
+        [BsonElement("title")]
         public string Title { get; set; }
 
-        [Column("rcpdsc")]
+        [BsonRepresentation(BsonType.String)]
+        [BsonElement("description")]
         public string Description { get; set; }
 
-        [Column("rcpimg")]
+        [BsonRepresentation(BsonType.String)]
+        [BsonElement("imagePath")]
         public string ImagePath { get; set; }
 
-        [Column("coktim")]
+        [BsonRepresentation(BsonType.String)]
+        [BsonElement("cookingTime")]
         public TimeSpan CookingTime { get; set; }
 
-        [Column("baktim")]
+        [BsonRepresentation(BsonType.String)]
+        [BsonElement("bakingTime")]
         public TimeSpan BakingTime { get; set; }
 
-        public ICollection<RecipeTag> TagsLink { get; set; }
+        [BsonElement("tags")]
+        public HashSet<string> Tags { get; set; }
 
-        public ICollection<RecipeStep> Steps { get; set; }
+        [BsonElement("steps")]
+        public List<RecipeStepMongo> Steps { get; set; }
 
-        public ICollection<RecipeIngredient> Ingredients { get; set; }
+        [BsonElement("ingredients")]
+        public List<RecipeIngredientMongo> Ingredients { get; set; }
+    }
+
+    public class RecipeStepMongo
+    {
+        [BsonRepresentation(BsonType.Int32)]
+        [BsonElement("position")]
+        public int Position { get; set; }
+
+        [BsonRepresentation(BsonType.String)]
+        [BsonElement("content")]
+        public string Content { get; set; }
+    }
+
+    public class RecipeIngredientMongo
+    {
+        [BsonRepresentation(BsonType.String)]
+        [BsonElement("name")]
+        public string Name { get; set; }
+
+        [BsonRepresentation(BsonType.Double)]
+        [BsonElement("quantity")]
+        public double Quantity { get; set; }
+
+        [BsonRepresentation(BsonType.String)]
+        [BsonElement("unit")]
+        public string Unit { get; set; }
     }
 }

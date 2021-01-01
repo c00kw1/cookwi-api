@@ -1,17 +1,19 @@
 using Api.Hosting.AdminAPI;
 using Api.Hosting.Authorization;
+using Api.Hosting.Middlewares;
 using Api.Hosting.Settings;
 using Api.Hosting.Utils;
-using Api.Service;
+using Api.Service.Mongo;
+using Api.Service.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
+using Newtonsoft.Json.Converters;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -32,11 +34,10 @@ namespace Api.Hosting
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            // gather authentication and sso settings
+            // authentication settings
             var authSection = Configuration.GetSection("Authentication");
             var authSettings = authSection.Get<AuthenticationSettings>();
             services.Configure<AuthenticationSettings>(authSection);
-
             // sso settings
             var ssoSection = Configuration.GetSection("Sso");
             services.Configure<SsoSettings>(ssoSection);
@@ -44,12 +45,23 @@ namespace Api.Hosting
             // s3 settings
             var s3Settings = S3Settings.Get(Configuration["S3SettingsPath"]);
             services.AddSingleton(s3Settings);
+            // mongo settings and configuration
+            var mongoSettings = MongoDBSettings.Get(Configuration["MongoDBSettings"]);
+            services.AddSingleton(mongoSettings);
+            services.AddSingleton<RecipesService>();
+            services.AddSingleton<QuantityUnitsService>();
+            services.AddSingleton<UsersService>();
+            services.AddSingleton<UserInvitationsService>();
             // to handle tokens for SSO Admin API
             services.AddSingleton(typeof(TokensFactory));
             // to handle s3 operations
             services.AddSingleton(typeof(S3));
 
-            services.AddControllers().AddNewtonsoftJson(options => options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
+            services.AddControllers().AddNewtonsoftJson(options =>
+            {
+                options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
+                options.SerializerSettings.Converters.Add(new StringEnumConverter());
+            });
             services.AddCors();
             services.AddRouting(options => options.LowercaseUrls = true); // lower every controller route by default
 
@@ -135,13 +147,6 @@ namespace Api.Hosting
 
             #endregion
 
-            #region DBContext
-
-            var dbSettings = DatabaseSettings.Get(Configuration["DatabaseSettingsPath"]);
-            services.AddDbContext<CookwiDbContext>(options => options.UseNpgsql(dbSettings.ConnectionString));
-
-            #endregion
-
             services.AddMvc(c => c.Conventions.Add(new ApiExplorerGroupPerNamespaceConvention()));
         }
 
@@ -180,6 +185,8 @@ namespace Api.Hosting
             });
 
             #endregion
+
+            app.UseMiddleware<RequestResponseLoggingMiddleware>();
 
             app.UseEndpoints(endpoints =>
             {

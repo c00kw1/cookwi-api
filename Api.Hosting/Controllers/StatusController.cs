@@ -11,7 +11,8 @@ namespace Api.Hosting.Controllers
         [HttpGet]
         [SwaggerOperation(Summary = "Check if API is alive")]
         [SwaggerResponse(200, "Simple pong string", typeof(string))]
-        public ActionResult<string> Ping()
+        [SwaggerResponse(500, "An unexpected error has occured")]
+        public IActionResult Ping()
         {
             return Ok("pong");
         }

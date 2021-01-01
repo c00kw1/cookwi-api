@@ -1,38 +1,50 @@
-﻿using Api.Hosting.AdminAPI;
-using Api.Hosting.Dto.Admin;
-using Api.Service;
+﻿using Api.Hosting.Dto.Admin;
 using Api.Service.Models.Admin;
+using Api.Service.Mongo;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Swashbuckle.AspNetCore.Annotations;
-using System.Threading.Tasks;
+using System;
 
 namespace Api.Hosting.Controllers.Admin
 {
     [ApiController]
     [Route("api/admin/users")]
     [Produces("application/json")]
-    [Authorize("admin")]
+    [Authorize(Constants.Policies.Admin)]
     public class AdminUsersController : Controller
     {
-        private TokensFactory _tokensFactory;
-        private CookwiDbContext _dbContext;
+        private ILogger _logger;
+        private UserInvitationsService _service;
 
-        public AdminUsersController(TokensFactory factory, CookwiDbContext context)
+        public AdminUsersController(ILogger<AdminUsersController> logger, UserInvitationsService _invitationsService)
         {
-            _tokensFactory = factory;
-            _dbContext = context;
+            _logger = logger;
+            _service = _invitationsService;
         }
+
+        #region Invitations
 
         [HttpGet("invitations/create")]
         [SwaggerOperation("Get an invitation code (the ID) to register")]
         [SwaggerResponse(201, "The invitation asked", typeof(UserInvitationDto))]
         [SwaggerResponse(500, "An error occured")]
-        public async Task<IActionResult> GetInvitation()
+        public IActionResult GetInvitation()
         {
-            var entity = await _dbContext.UserInvitations.AddAsync(UserInvitation.GenerateNew());
-            await _dbContext.SaveChangesAsync();
-            return Ok(entity.Entity.Dto());
+            try
+            {
+                var entity = _service.Create(UserInvitation.GenerateNew());
+
+                return Ok(entity.Dto());
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($"Cannot generate an invitation, an unexpected error occured - {e}");
+                return StatusCode(500, "Cannot register a new invitation into DB");
+            }
         }
+
+        #endregion
     }
 }
