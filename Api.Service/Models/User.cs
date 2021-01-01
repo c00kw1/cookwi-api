@@ -1,21 +1,27 @@
-﻿using System;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using MongoDB.Bson.Serialization.Attributes;
+using System;
 
 namespace Api.Service.Models
 {
-    [Table("usr")]
-    [Serializable]
-    public class User
+    public class User : MongoEntity
     {
-        [Key]
-        [Column("id")]
-        public Guid Id { get; set; }
+        [BsonRepresentation(MongoDB.Bson.BsonType.String)]
+        [BsonElement("ssoId")]
+        public Guid SsoId { get; set; }
 
-        [Column("bthdat")]
-        public DateTime BirthDate { get; set; }
+        [BsonRepresentation(MongoDB.Bson.BsonType.DateTime)]
+        [BsonElement("birthdate")]
+        public DateTime Birthdate { get; set; }
 
-        [Column("gen")]
-        public string Gender { get; set; }
+        [BsonRepresentation(MongoDB.Bson.BsonType.String)]
+        [BsonElement("gender")]
+        public Gender Gender { get; set; }
+    }
+
+    public enum Gender
+    {
+        Male,
+        Female,
+        Other
     }
 }

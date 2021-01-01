@@ -73,14 +73,13 @@ namespace Api.Hosting.AdminAPI
             {
                 var content = new List<KeyValuePair<string, string>>
                 {
-                    new KeyValuePair<string, string>("client_id", "admin-cli")
+                    new KeyValuePair<string, string>("client_id", _settings.Api.Username),
+                    new KeyValuePair<string, string>("client_secret", _settings.Api.Password)
                 };
 
                 if (!isRefresh)
                 {
-                    content.Add(new KeyValuePair<string, string>("grant_type", "password"));
-                    content.Add(new KeyValuePair<string, string>("username", _settings.Api.Username));
-                    content.Add(new KeyValuePair<string, string>("password", _settings.Api.Password));
+                    content.Add(new KeyValuePair<string, string>("grant_type", "client_credentials"));
                 }
                 else
                 {
@@ -120,9 +119,9 @@ namespace Api.Hosting.AdminAPI
                     }
                 }
             }
-            catch
+            catch (Exception e)
             {
-                throw;
+                throw e;
             }
         }
 

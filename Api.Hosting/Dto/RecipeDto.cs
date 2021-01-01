@@ -1,7 +1,5 @@
-﻿using Api.Hosting.Helpers;
-using Api.Hosting.Utils;
+﻿using Api.Hosting.Utils;
 using Api.Service.Models;
-using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using Swashbuckle.AspNetCore.Annotations;
 using System;
@@ -10,17 +8,11 @@ using System.Linq;
 namespace Api.Hosting.Dto
 {
     [SwaggerSchema(Required = new[] { "Title", "Description" })]
-    public class RecipeDto
+    public class RecipeDto : DtoObject
     {
-        [JsonProperty("id")]
-        [JsonConverter(typeof(GuidConverter))]
-        [SwaggerSchema("Unique identifier", ReadOnly = true)]
-        public Guid Id { get; set; }
-
         [JsonProperty("ownerId")]
-        [JsonConverter(typeof(GuidConverter))]
         [SwaggerSchema("Owner identifier", ReadOnly = true)]
-        public Guid OwnerId { get; set; }
+        public string OwnerId { get; set; }
 
         [JsonProperty("dateCreation")]
         [SwaggerSchema("Date of creation of the recipe", Format = "date", ReadOnly = true)]
@@ -48,7 +40,7 @@ namespace Api.Hosting.Dto
 
         [JsonProperty("tags")]
         [SwaggerSchema("Tags of the recipe")]
-        public TagDto[] Tags { get; set; }
+        public string[] Tags { get; set; }
 
         [JsonProperty("steps")]
         [SwaggerSchema("Steps of the recipe")]
@@ -67,13 +59,12 @@ namespace Api.Hosting.Dto
             {
                 Id = entity.Id,
                 OwnerId = entity.OwnerId,
-                DateCreation = entity.DateCreation,
                 Title = entity.Title,
                 Description = entity.Description,
                 CookingTime = entity.CookingTime,
                 BakingTime = entity.BakingTime,
                 ImagePath = s3.GetPresignedUrl(entity.ImagePath).GetAwaiter().GetResult(),
-                Tags = entity.TagsLink.Select(rt => rt.Tag.Dto()).ToArray(),
+                Tags = entity.Tags.ToArray(),
                 Steps = entity.Steps.Select(s => s.Dto()).ToArray(),
                 Ingredients = entity.Ingredients.Select(s => s.Dto()).ToArray()
             };
@@ -87,17 +78,9 @@ namespace Api.Hosting.Dto
                 Description = recipe.Description,
                 CookingTime = recipe.CookingTime,
                 BakingTime = recipe.BakingTime,
-                ImagePath = ""
+                ImagePath = "",
+                Tags = recipe.Tags.ToHashSet()
             };
-            // we set the tags
-            newRecipe.TagsLink = recipe.Tags.Select(newTag =>
-            {
-                return new RecipeTag
-                {
-                    Recipe = newRecipe,
-                    Tag = newTag.Model()
-                };
-            }).ToList();
             // we set the steps and the ingredients
             newRecipe.Steps = recipe.Steps.Select(step => step.Model()).ToList();
             newRecipe.Ingredients = recipe.Ingredients.Select(ingredient => ingredient.Model()).ToList();

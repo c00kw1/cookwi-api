@@ -1,26 +1,14 @@
-﻿using Api.Hosting.Helpers;
-using Api.Service.Models;
+﻿using Api.Service.Models;
 using Newtonsoft.Json;
 using Swashbuckle.AspNetCore.Annotations;
-using System;
 
 namespace Api.Hosting.Dto
 {
-    [SwaggerSchema(Required = new[] { "RecipeId", "StepNumber", "Content" })]
     public class RecipeStepDto
     {
-        [JsonProperty("id")]
-        [JsonConverter(typeof(GuidConverter))]
-        [SwaggerSchema("Unique identiifier", ReadOnly = true)]
-        public Guid Id { get; set; }
-
-        [JsonProperty("recipeId")]
-        [SwaggerSchema("Recipe id the step belongs to", ReadOnly = true)]
-        public Guid RecipeId { get; set; }
-
-        [JsonProperty("stepNumber")]
+        [JsonProperty("position")]
         [SwaggerSchema("Recipe id the step belongs to")]
-        public int StepNumber { get; set; }
+        public int Position { get; set; }
 
         [JsonProperty("content")]
         [SwaggerSchema("Recipe id the step belongs to")]
@@ -29,24 +17,20 @@ namespace Api.Hosting.Dto
 
     public static class RecipeStepDtoExtensions
     {
-        public static RecipeStepDto Dto(this RecipeStep step)
+        public static RecipeStepDto Dto(this RecipeStepMongo step)
         {
             return new RecipeStepDto
             {
-                Id = step.Id,
-                RecipeId = step.RecipeId,
-                StepNumber = step.StepNumber,
+                Position = step.Position,
                 Content = step.Content
             };
         }
 
-        public static RecipeStep Model(this RecipeStepDto entity)
+        public static RecipeStepMongo Model(this RecipeStepDto entity)
         {
-            return new RecipeStep
+            return new RecipeStepMongo
             {
-                Id = entity.Id,
-                RecipeId = entity.RecipeId,
-                StepNumber = entity.StepNumber,
+                Position = entity.Position,
                 Content = entity.Content
             };
         }
