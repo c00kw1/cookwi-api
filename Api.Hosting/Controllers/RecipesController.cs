@@ -192,6 +192,33 @@ namespace Api.Hosting.Controllers
             }
         }
 
+        [HttpDelete]
+        [Route("{id}")]
+        [SwaggerOperation(Summary = "Removes an existing recipe")]
+        [SwaggerResponse(200, "Recipe object removed from db")]
+        [SwaggerResponse(404, "Recipe to remove is not found / does not exist")]
+        [SwaggerResponse(500, "Cannot remove the recipe as an error occured")]
+        public IActionResult DeleteRecipe(string id)
+        {
+            var userId = UserHelper.GetId(HttpContext.User);
+
+            try
+            {
+                _recipesService.Remove(id, userId);
+                return Ok();
+            }
+            catch (NotFoundException)
+            {
+                _logger.LogInformation($"Recipe to remove {id} for user {userId} is not found");
+                return NotFound();
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($"Cannot remove recipe {id} for user {userId} - {e}");
+                return StatusCode(500, "The recipe cannot be removed");
+            }
+        }
+
         [HttpPost]
         [Route("{id}/image")]
         [SwaggerOperation("Adds an image to a recipe")]
