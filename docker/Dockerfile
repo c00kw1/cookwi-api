@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/core/aspnet:3.1
+FROM mcr.microsoft.com/dotnet/sdk:5.0
 
 ARG path_to_binaries="./api-package"
 ARG environment="Homologation"
