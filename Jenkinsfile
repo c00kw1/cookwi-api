@@ -10,7 +10,7 @@ pipeline {
     {
         docker
         {
-            image "mcr.microsoft.com/dotnet/core/sdk:${params.SDK}"
+            image "mcr.microsoft.com/dotnet/sdk:${params.SDK}"
             args "--name ${env.BUILD_TAG}"
         }
     }
