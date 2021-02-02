@@ -1,0 +1,7 @@
+{
+  "Endpoint": "host.docker.internal:9000",
+  "Ssl": false,
+  "Bucket": "development",
+  "AccessKey": "cookwidev",
+  "AccessSecret": "cookwidev"
+}

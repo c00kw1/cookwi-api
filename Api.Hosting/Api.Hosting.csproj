@@ -28,5 +28,9 @@
     <ProjectReference Include="..\Api.Service\Api.Service.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Config\" />
+  </ItemGroup>
+
 
 </Project>

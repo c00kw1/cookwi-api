@@ -29,7 +29,7 @@ namespace Api.Hosting.Controllers
         private SsoSettings _ssoSettings;
         private UsersService _usersService;
         private UserInvitationsService _invitatonsService;
-        private const string realm = "cookwi2";
+        private const string realm = "cookwi";
 
         public UsersController(ILogger<UsersController> logger, TokensFactory factory, IOptions<SsoSettings> ssoSettings, 
                                UsersService usersService, UserInvitationsService userInvitationsService)
@@ -162,7 +162,7 @@ namespace Api.Hosting.Controllers
                 httpclient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_tokensFactory.AccessToken}");
                 httpclient.DefaultRequestHeaders.Add("Accept", "application/json");
                 var content = new StringContent("{}", Encoding.UTF8, "application/json");
-                var resp = await httpclient.PutAsync($"/auth/admin/realms/cookwi2/users/{ssoUser.Id}/send-verify-email?client_id=cookwi-webclient&redirect_uri={HttpUtility.UrlEncode(_ssoSettings.Api.RedirectUrl)}", content);
+                var resp = await httpclient.PutAsync($"/auth/admin/realms/cookwi/users/{ssoUser.Id}/send-verify-email?client_id=cookwi-webclient&redirect_uri={HttpUtility.UrlEncode(_ssoSettings.Api.RedirectUrl)}", content);
                 if (!resp.IsSuccessStatusCode)
                 {
                     return await ReturnErrorAndCleanUser(500, $"Unable to send verification mail for address {user.Email} ... Sorry.", ssoUser.Id);

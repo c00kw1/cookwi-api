@@ -1,0 +1,6 @@
+{
+  "endpoint": "host.docker.internal:27017",
+  "database": "cookwi-data",
+  "username": "cookwidev",
+  "password": "cookwidev"
+}
