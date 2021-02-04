@@ -6,12 +6,12 @@ namespace Api.Hosting.Authorization
     public class HasScopeRequirement : IAuthorizationRequirement
     {
         public string Scope { get; }
-        public string Issuer { get; }
+        public string[] Issuers { get; }
 
-        public HasScopeRequirement(string scope, string issuer)
+        public HasScopeRequirement(string scope, string[] issuers)
         {
             Scope = scope ?? throw new ArgumentNullException(nameof(scope));
-            Issuer = issuer ?? throw new ArgumentNullException(nameof(issuer));
+            Issuers = issuers ?? throw new ArgumentNullException(nameof(issuers));
         }
     }
 }

@@ -73,9 +73,13 @@ namespace Api.Hosting
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
             }).AddJwtBearer(options =>
             {
+                options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuers = ssoSettings.Issuers
+                };
                 options.Authority = ssoSettings.Authority;
                 options.Audience = ssoSettings.Audience;
-                options.ClaimsIssuer = ssoSettings.Issuer;
                 options.RequireHttpsMetadata = !Environement.IsDevelopment(); // disable https for OAuth2 provider
             });
 
@@ -85,7 +89,7 @@ namespace Api.Hosting
                 {
                     options.AddPolicy(policy.Name, builder =>
                     {
-                        policy.Scopes.ForEach(scope => builder.Requirements.Add(new HasScopeRequirement(scope.Name, ssoSettings.Issuer)));
+                        policy.Scopes.ForEach(scope => builder.Requirements.Add(new HasScopeRequirement(scope.Name, ssoSettings.Issuers)));
                     });
                 });
                 options.DefaultPolicy = options.GetPolicy("default"); // this is required, so check in appsettings.json you have at least a default policy

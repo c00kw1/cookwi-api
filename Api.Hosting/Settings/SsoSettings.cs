@@ -7,7 +7,7 @@ namespace Api.Hosting.Settings
     {
         public string Authority { get; set; }
         public string Audience { get; set; }
-        public string Issuer { get; set; }
+        public string[] Issuers { get; set; }
         public Dictionary<string, string> Routes { get; set; }
         public ApiSettings Api { get; set; }
     }
