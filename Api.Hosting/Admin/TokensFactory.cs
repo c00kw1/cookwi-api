@@ -73,8 +73,8 @@ namespace Api.Hosting.AdminAPI
             {
                 var content = new List<KeyValuePair<string, string>>
                 {
-                    new KeyValuePair<string, string>("client_id", _settings.Api.Username),
-                    new KeyValuePair<string, string>("client_secret", _settings.Api.Password)
+                    new KeyValuePair<string, string>("client_id", _settings.Api.ClientId),
+                    new KeyValuePair<string, string>("client_secret", _settings.Api.ClientSecret)
                 };
 
                 if (!isRefresh)
