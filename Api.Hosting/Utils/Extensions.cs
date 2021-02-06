@@ -4,7 +4,7 @@
     {
         public static int Mb(this int nb)
         {
-            return nb * 1_000_000;
+            return nb * 1024 * 1024;
         }
     }
 }

@@ -221,10 +221,12 @@ namespace Api.Hosting.Controllers
 
         [HttpPost]
         [Route("{id}/image")]
+        [RequestSizeLimit(10_485_760)] // 10 Mb
         [SwaggerOperation("Adds an image to a recipe")]
         [SwaggerResponse(200, "Image added")]
         [SwaggerResponse(400, "Image format is wrong")]
         [SwaggerResponse(404, "Recipe not found")]
+        [SwaggerResponse(413, "File too large")]
         [SwaggerResponse(500, "An error occured with the server (s3 ?)")]
         public IActionResult AddImage(string id, IFormFile file)
         {

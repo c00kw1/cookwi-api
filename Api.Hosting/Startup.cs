@@ -162,9 +162,6 @@ namespace Api.Hosting
                 app.UseDeveloperExceptionPage();
             }
 
-            // in PROD or homolo, we actually are behind a nginx proxy which handles SSL for us
-            //app.UseHttpsRedirection();
-
             app.UseCors(options => options.WithOrigins(Configuration["Cors"].Split('|')).AllowAnyMethod().AllowAnyHeader());
             app.UseRouting();
 
