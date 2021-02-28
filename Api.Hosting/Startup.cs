@@ -5,7 +5,6 @@ using Api.Hosting.Settings;
 using Api.Hosting.Utils;
 using Api.Service.Mongo;
 using Api.Service.Settings;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -34,6 +33,8 @@ namespace Api.Hosting
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            #region Settings gethering
+
             // authentication settings
             var authSection = Configuration.GetSection("Authentication");
             var authSettings = authSection.Get<AuthenticationSettings>();
@@ -46,16 +47,27 @@ namespace Api.Hosting
             var s3Settings = S3Settings.Get(Configuration["S3SettingsPath"]);
             services.AddSingleton(s3Settings);
             // mongo settings and configuration
-            var mongoSettings = MongoDBSettings.Get(Configuration["MongoDBSettings"]);
+            var mongoSettings = MongoDBSettings.Get(Configuration["MongoDBSettingsPath"]);
             services.AddSingleton(mongoSettings);
+            // captcha settings
+            var captchaSettings = RecaptchaSettings.Get(Configuration["RecaptchaSettingsPath"]);
+            services.AddSingleton(captchaSettings);
+
+            #endregion
+
+            #region Injections
+
             services.AddSingleton<RecipesService>();
             services.AddSingleton<QuantityUnitsService>();
             services.AddSingleton<UsersService>();
             services.AddSingleton<UserInvitationsService>();
+            services.AddSingleton<ContactService>();
             // to handle tokens for SSO Admin API
             services.AddSingleton(typeof(TokensFactory));
             // to handle s3 operations
             services.AddSingleton(typeof(S3));
+
+            #endregion
 
             services.AddControllers().AddNewtonsoftJson(options =>
             {
@@ -67,34 +79,8 @@ namespace Api.Hosting
 
             #region Security
 
-            services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            }).AddJwtBearer(options =>
-            {
-                options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidIssuers = ssoSettings.Issuers
-                };
-                options.Authority = ssoSettings.Authority;
-                options.Audience = ssoSettings.Audience;
-                options.RequireHttpsMetadata = !Environement.IsDevelopment(); // disable https for OAuth2 provider
-            });
-
-            services.AddAuthorization(options =>
-            {
-                authSettings.Policies.ForEach(policy =>
-                {
-                    options.AddPolicy(policy.Name, builder =>
-                    {
-                        policy.Scopes.ForEach(scope => builder.Requirements.Add(new HasScopeRequirement(scope.Name, ssoSettings.Issuers)));
-                    });
-                });
-                options.DefaultPolicy = options.GetPolicy("default"); // this is required, so check in appsettings.json you have at least a default policy
-            });
-
+            services.ConfigureSso(Environement, ssoSettings);
+            services.ConfigurePolicies(authSettings, ssoSettings);
             services.AddSingleton<IAuthorizationHandler, HasScopeHandler>();
 
             #endregion
@@ -107,7 +93,7 @@ namespace Api.Hosting
             var refreshUrl = ssoSettings.Authority + ssoSettings.Routes["Refresh"];
             // preparing the list of scopes for swagger
             var configScopes = authSettings.Policies.SelectMany(p => p.Scopes);
-            var scopes = new Dictionary<string, string>(configScopes.Select(e => new KeyValuePair<string, string>(e.Name, e.Description)));
+            var scopes = new Dictionary<string, string>(configScopes.Select(e => new KeyValuePair<string, string>(e, "Cookwi scope")));
             // we add the classic scope
             scopes.Add("openid", "OAuth2 basic scope");
             scopes.Add("email", "OAuth2 basic scope");
@@ -140,7 +126,7 @@ namespace Api.Hosting
                         {
                             Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
                         },
-                        configScopes.Select(s => s.Name).ToArray() // all the scopes of the api (not the profile/openid/email)
+                        configScopes.ToArray() // all the scopes of the api (not the profile/openid/email)
                     }
                 });
 

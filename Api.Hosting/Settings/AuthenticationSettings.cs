@@ -11,12 +11,7 @@ namespace Api.Hosting.Settings
     public class Policy
     {
         public string Name { get; set; }
-        public List<Scope> Scopes { get; set; }
-    }
-
-    public class Scope
-    {
-        public string Name { get; set; }
-        public string Description { get; set; }
+        public List<string> Scopes { get; set; }
+        public List<string> Roles { get; set; }
     }
 }
